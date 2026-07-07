@@ -238,7 +238,17 @@ with st.sidebar:
     if auto_refresh:
         import time
         rates = {"30 segundos": 30, "60 segundos": 60, "2 minutos": 120}
-        time.sleep(rates[refresh_rate])
+        segundos = rates[refresh_rate]
+        with st.sidebar:
+            placeholder = st.empty()
+            for i in range(segundos, 0, -1):
+                placeholder.markdown(f"""
+                <div style='color: #00ff88; font-family: monospace; font-size: 0.8rem;'>
+                ⏱ Actualizando en {i}s...
+                </div>
+                """, unsafe_allow_html=True)
+                time.sleep(1)
+            placeholder.empty()
         st.cache_data.clear()
         st.rerun()
 

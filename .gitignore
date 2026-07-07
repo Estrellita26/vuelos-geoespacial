@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Docker
+*.log
+
+# Mage
+mage/.mage_env
+mage/**/.cache
+
+# Credenciales — MUY IMPORTANTE
+*secret*
+*credentials*
+ingest_test.py

@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: vuelos_postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: vuelos_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vuelos_net
+
+  mage:
+    image: mageai/mageai:latest
+    container_name: vuelos_mage
+    command: mage start vuelos_pipeline
+    environment:
+      USER_CODE_PATH: /home/src/vuelos_pipeline
+      REQUIRE_USER_AUTHENTICATION: 0
+    ports:
+      - "6790:6789"
+    volumes:
+      - ./mage:/home/src
+    networks:
+      - vuelos_net
+    depends_on:
+      - postgres
+
+  fastapi:
+    build: ./fastapi
+    container_name: vuelos_fastapi
+    ports:
+      - "8000:8000"
+    networks:
+      - vuelos_net
+    depends_on:
+      - postgres
+
+  streamlit:
+    build: ./streamlit
+    container_name: vuelos_streamlit
+    ports:
+      - "8501:8501"
+    networks:
+      - vuelos_net
+    depends_on:
+      - fastapi
+
+networks:
+  vuelos_net:
+    driver: bridge
+
+volumes:
+  postgres_data:

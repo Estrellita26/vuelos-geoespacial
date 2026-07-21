@@ -5,6 +5,7 @@ import folium
 from streamlit_folium import st_folium
 import plotly.graph_objects as go
 from datetime import datetime
+import pytz
 
 # ============================================================
 # CONFIGURACIÓN
@@ -35,11 +36,6 @@ st.markdown("""
     background-image:
         radial-gradient(ellipse at 20% 50%, rgba(0, 100, 255, 0.07) 0%, transparent 60%),
         radial-gradient(ellipse at 80% 20%, rgba(0, 200, 255, 0.05) 0%, transparent 50%);
-}
-
-[data-testid="stSidebar"] {
-    background: rgba(2, 15, 35, 0.95) !important;
-    border-right: 1px solid rgba(0, 150, 255, 0.2) !important;
 }
 
 .main-title {
@@ -150,27 +146,94 @@ st.markdown("""
     50%      { opacity: 0.4; transform: scale(0.8); }
 }
 
-.status-bar {
-    font-family: 'Inter', sans-serif;
-    font-size: 0.75rem;
-    color: rgba(0, 180, 255, 0.5);
-    letter-spacing: 2px;
-    padding: 8px 0;
+/* Barra de estado grande y visible */
+.status-bar-big {
+    background: linear-gradient(135deg, rgba(0, 30, 60, 0.95), rgba(0, 10, 30, 0.98));
+    border: 1px solid rgba(0, 200, 255, 0.3);
+    border-left: 4px solid #00ddff;
+    border-radius: 8px;
+    padding: 14px 20px;
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-#MainMenu, footer, header { visibility: hidden; }
+.status-dot-big {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    background: #00ff88;
+    border-radius: 50%;
+    box-shadow: 0 0 15px #00ff88, 0 0 30px rgba(0,255,136,0.3);
+    animation: pulse 1.5s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+.status-text-big {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.9rem;
+    color: #00ddff;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(0,200,255,0.5);
+}
+
+.status-time {
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #00ff88;
+    text-shadow: 0 0 10px rgba(0,255,136,0.5);
+    margin-left: auto;
+}
+
+/* Sistema activo card */
+.sistema-card {
+    background: linear-gradient(135deg, rgba(0, 20, 50, 0.8), rgba(0, 5, 20, 0.9));
+    border: 1px solid rgba(0, 150, 255, 0.2);
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 8px;
+}
+
+.sistema-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(0, 100, 255, 0.1);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+}
+
+.sistema-row:last-child {
+    border-bottom: none;
+}
+
+.sistema-key {
+    color: rgba(0, 150, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.sistema-val {
+    color: #00ddff;
+    font-weight: 500;
+}
+
+#MainMenu, footer { visibility: hidden; }
+header { background: transparent !important; }
 .block-container { padding-top: 2rem; }
 </style>
 """, unsafe_allow_html=True)
 
 
 # ============================================================
-# FUNCIÓN PARA OBTENER VUELOS EN TIEMPO REAL DESDE OPENSKY
+# FUNCIÓN PARA OBTENER VUELOS EN TIEMPO REAL
 # ============================================================
-@st.cache_data(ttl=30)  # Cache de 30 segundos
+@st.cache_data(ttl=30)
 def obtener_vuelos_tiempo_real():
     try:
-        # Token
         url_token = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
         resp = requests.post(url_token, data={
             "grant_type": "client_credentials",
@@ -179,7 +242,6 @@ def obtener_vuelos_tiempo_real():
         }, timeout=15)
         token = resp.json()["access_token"]
 
-        # Vuelos
         resp = requests.get(
             "https://opensky-network.org/api/states/all",
             params=BBOX,
@@ -196,7 +258,9 @@ def obtener_vuelos_tiempo_real():
         df = df.dropna(subset=["latitude","longitude"])
         df = df[df["on_ground"] == False]
         df["callsign"] = df["callsign"].str.strip()
-        return df, len(df), datetime.now().strftime("%H:%M:%S")
+        panama_tz = pytz.timezone('America/Panama')
+        hora_panama = datetime.now(panama_tz).strftime("%H:%M:%S")
+        return df, len(df), hora_panama
 
     except Exception as e:
         return pd.DataFrame(), 0, "Error"
@@ -207,50 +271,81 @@ def obtener_vuelos_tiempo_real():
 # ============================================================
 with st.sidebar:
     st.markdown("""
-    <div style='font-family: Orbitron, monospace; font-size: 1rem; color: #00aaff;
-                letter-spacing: 3px; text-transform: uppercase; margin-bottom: 24px;
-                padding-bottom: 12px; border-bottom: 1px solid rgba(0,150,255,0.2)'>
-        ⚙ Control Panel
+    <style>
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #020b18 0%, #00020a 100%) !important;
+        border-right: 1px solid rgba(0, 150, 255, 0.2) !important;
+    }
+    [data-testid="stSidebar"] label {
+        font-family: 'Inter', sans-serif !important;
+        color: rgba(0, 180, 255, 0.8) !important;
+        font-size: 0.8rem !important;
+        letter-spacing: 1px !important;
+        text-transform: uppercase !important;
+    }
+    [data-testid="stSidebar"] .stButton > button {
+        background: rgba(0, 20, 50, 0.6) !important;
+        border: 1px solid rgba(0, 150, 255, 0.4) !important;
+        color: #00ffee !important;
+        font-family: 'Orbitron', monospace !important;
+        letter-spacing: 1px !important;
+        border-radius: 6px !important;
+        width: 100% !important;
+    }
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background: rgba(0, 150, 255, 0.2) !important;
+        border-color: #00ff88 !important;
+        color: #00ff88 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style='font-family: Orbitron, monospace; font-size: 1.1rem; color: #00aaff;
+                letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px;
+                padding-bottom: 12px; border-bottom: 1px solid rgba(0,150,255,0.2);
+                text-shadow: 0 0 10px rgba(0,170,255,0.4);'>
+        ⚙ PANEL DE CONTROL
     </div>
     """, unsafe_allow_html=True)
 
     limite = st.slider("Vuelos a mostrar", 50, 500, 200, step=50)
     refresh_rate = st.selectbox("Actualizar cada:", ["30 segundos", "60 segundos", "2 minutos"], index=0)
-    auto_refresh = st.checkbox("🔴 Live Mode", value=False)
 
     st.markdown("<div class='neon-divider'></div>", unsafe_allow_html=True)
 
+    # Sistema activo card mejorada
     st.markdown("""
-    <div style='font-family: Inter, sans-serif; font-size: 0.75rem;
-                color: rgba(0,180,255,0.5); letter-spacing: 1px;'>
-        <span class='pulse-dot'></span> SISTEMA ACTIVO<br><br>
-        Fuente: OpenSky Network<br>
-        Región: Estados Unidos<br>
-        Protocolo: OAuth2<br>
-        Modo: Tiempo Real
+    <div class='sistema-card'>
+        <div style='font-family: Orbitron, monospace; font-size: 0.75rem; color: #00aaff;
+                    letter-spacing: 3px; margin-bottom: 12px; text-transform: uppercase;'>
+            <span class='pulse-dot'></span> SISTEMA ACTIVO
+        </div>
+        <div class='sistema-row'>
+            <span class='sistema-key'>Fuente</span>
+            <span class='sistema-val'>OpenSky Network</span>
+        </div>
+        <div class='sistema-row'>
+            <span class='sistema-key'>Región</span>
+            <span class='sistema-val'>Estados Unidos</span>
+        </div>
+        <div class='sistema-row'>
+            <span class='sistema-key'>Protocolo</span>
+            <span class='sistema-val'>OAuth2</span>
+        </div>
+        <div class='sistema-row'>
+            <span class='sistema-key'>Modo</span>
+            <span class='sistema-val' style='color: #00ff88;'>⬤ Tiempo Real</span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
+
+    st.markdown("<div class='neon-divider'></div>", unsafe_allow_html=True)
 
     if st.button(" Actualizar ahora"):
         st.cache_data.clear()
         st.rerun()
 
-    if auto_refresh:
-        import time
-        rates = {"30 segundos": 30, "60 segundos": 60, "2 minutos": 120}
-        segundos = rates[refresh_rate]
-        with st.sidebar:
-            placeholder = st.empty()
-            for i in range(segundos, 0, -1):
-                placeholder.markdown(f"""
-                <div style='color: #00ff88; font-family: monospace; font-size: 0.8rem;'>
-                ⏱ Actualizando en {i}s...
-                </div>
-                """, unsafe_allow_html=True)
-                time.sleep(1)
-            placeholder.empty()
-        st.cache_data.clear()
-        st.rerun()
 
 # ============================================================
 # HEADER
@@ -262,7 +357,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================
-# OBTENER DATOS EN TIEMPO REAL
+# OBTENER DATOS
 # ============================================================
 df, total_vuelos, ultima_actualizacion = obtener_vuelos_tiempo_real()
 
@@ -307,7 +402,7 @@ with col4:
 st.markdown("<div class='neon-divider'></div>", unsafe_allow_html=True)
 
 # ============================================================
-# MAPA EN TIEMPO REAL
+# MAPA
 # ============================================================
 st.markdown("<div class='section-header'>Mapa de Tráfico Aéreo en Vivo</div>", unsafe_allow_html=True)
 
@@ -345,10 +440,10 @@ if len(df) > 0:
                             border: 1px solid #00aaff; min-width: 160px;'>
                     <b>✈ {row.get('callsign', 'N/A')}</b><br>
                     <hr style='border-color: #00aaff33; margin: 4px 0'>
-                       {row.get('origin_country', 'N/A')}<br>
-                       Alt: {row.get('baro_altitude', 'N/A')} m<br>
-                       Vel: {row.get('velocity', 'N/A')} m/s<br>
-                       Track: {round(track)}°
+                     {row.get('origin_country', 'N/A')}<br>
+                     Alt: {row.get('baro_altitude', 'N/A')} m<br>
+                     Vel: {row.get('velocity', 'N/A')} m/s<br>
+                     Track: {round(track)}°
                 </div>
                 """,
                 max_width=200
@@ -357,10 +452,12 @@ if len(df) > 0:
 
     st_folium(mapa, width=None, height=500, returned_objects=[])
 
+    # Barra de estado grande y visible
     st.markdown(f"""
-    <div class='status-bar'>
-        <span class='pulse-dot'></span>
-        {total_vuelos} VUELOS ACTIVOS EN TIEMPO REAL — ÚLTIMA ACTUALIZACIÓN: {ultima_actualizacion}
+    <div class='status-bar-big'>
+        <span class='status-dot-big'></span>
+        <span class='status-text-big'>{total_vuelos:,} VUELOS ACTIVOS EN TIEMPO REAL</span>
+        <span class='status-time'>⏱ {ultima_actualizacion}</span>
     </div>
     """, unsafe_allow_html=True)
 

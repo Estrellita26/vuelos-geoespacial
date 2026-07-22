@@ -6,15 +6,14 @@ from streamlit_folium import st_folium
 import plotly.graph_objects as go
 from datetime import datetime
 import pytz
+import time
 
 # ============================================================
 # CONFIGURACIÓN
 # ============================================================
 API_URL = "http://fastapi:8000"
-
 CLIENT_ID     = "amy.him-api-client"
 CLIENT_SECRET = "fcSze65WMPfF7FT1jpo15kkwgIodrMd1"
-
 BBOX = {'lamin': 24.0, 'lomin': -125.0, 'lamax': 50.0, 'lomax': -66.0}
 
 st.set_page_config(
@@ -146,7 +145,6 @@ st.markdown("""
     50%      { opacity: 0.4; transform: scale(0.8); }
 }
 
-/* Barra de estado grande y visible */
 .status-bar-big {
     background: linear-gradient(135deg, rgba(0, 30, 60, 0.95), rgba(0, 10, 30, 0.98));
     border: 1px solid rgba(0, 200, 255, 0.3);
@@ -165,7 +163,7 @@ st.markdown("""
     height: 12px;
     background: #00ff88;
     border-radius: 50%;
-    box-shadow: 0 0 15px #00ff88, 0 0 30px rgba(0,255,136,0.3);
+    box-shadow: 0 0 15px #00ff88;
     animation: pulse 1.5s ease-in-out infinite;
     flex-shrink: 0;
 }
@@ -175,7 +173,6 @@ st.markdown("""
     font-size: 0.9rem;
     color: #00ddff;
     letter-spacing: 2px;
-    text-shadow: 0 0 10px rgba(0,200,255,0.5);
 }
 
 .status-time {
@@ -183,11 +180,9 @@ st.markdown("""
     font-size: 1rem;
     font-weight: 700;
     color: #00ff88;
-    text-shadow: 0 0 10px rgba(0,255,136,0.5);
     margin-left: auto;
 }
 
-/* Sistema activo card */
 .sistema-card {
     background: linear-gradient(135deg, rgba(0, 20, 50, 0.8), rgba(0, 5, 20, 0.9));
     border: 1px solid rgba(0, 150, 255, 0.2);
@@ -206,20 +201,9 @@ st.markdown("""
     font-size: 0.75rem;
 }
 
-.sistema-row:last-child {
-    border-bottom: none;
-}
-
-.sistema-key {
-    color: rgba(0, 150, 255, 0.6);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.sistema-val {
-    color: #00ddff;
-    font-weight: 500;
-}
+.sistema-row:last-child { border-bottom: none; }
+.sistema-key { color: rgba(0, 150, 255, 0.6); text-transform: uppercase; letter-spacing: 1px; }
+.sistema-val { color: #00ddff; font-weight: 500; }
 
 #MainMenu, footer { visibility: hidden; }
 header { background: transparent !important; }
@@ -229,7 +213,7 @@ header { background: transparent !important; }
 
 
 # ============================================================
-# FUNCIÓN PARA OBTENER VUELOS EN TIEMPO REAL
+# FUNCIÓN PARA OBTENER VUELOS
 # ============================================================
 @st.cache_data(ttl=30)
 def obtener_vuelos_tiempo_real():
@@ -288,14 +272,8 @@ with st.sidebar:
         border: 1px solid rgba(0, 150, 255, 0.4) !important;
         color: #00ffee !important;
         font-family: 'Orbitron', monospace !important;
-        letter-spacing: 1px !important;
         border-radius: 6px !important;
         width: 100% !important;
-    }
-    [data-testid="stSidebar"] .stButton > button:hover {
-        background: rgba(0, 150, 255, 0.2) !important;
-        border-color: #00ff88 !important;
-        color: #00ff88 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -303,8 +281,7 @@ with st.sidebar:
     st.markdown("""
     <div style='font-family: Orbitron, monospace; font-size: 1.1rem; color: #00aaff;
                 letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px;
-                padding-bottom: 12px; border-bottom: 1px solid rgba(0,150,255,0.2);
-                text-shadow: 0 0 10px rgba(0,170,255,0.4);'>
+                padding-bottom: 12px; border-bottom: 1px solid rgba(0,150,255,0.2);'>
         ⚙ PANEL DE CONTROL
     </div>
     """, unsafe_allow_html=True)
@@ -314,7 +291,6 @@ with st.sidebar:
 
     st.markdown("<div class='neon-divider'></div>", unsafe_allow_html=True)
 
-    # Sistema activo card mejorada
     st.markdown("""
     <div class='sistema-card'>
         <div style='font-family: Orbitron, monospace; font-size: 0.75rem; color: #00aaff;
@@ -342,9 +318,11 @@ with st.sidebar:
 
     st.markdown("<div class='neon-divider'></div>", unsafe_allow_html=True)
 
-    if st.button(" Actualizar ahora"):
+    if st.button("🔄 Actualizar ahora"):
         st.cache_data.clear()
         st.rerun()
+
+    contador_sidebar = st.empty()
 
 
 # ============================================================
@@ -357,7 +335,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================
-# OBTENER DATOS
+# DATOS
 # ============================================================
 df, total_vuelos, ultima_actualizacion = obtener_vuelos_tiempo_real()
 
@@ -418,41 +396,25 @@ if len(df) > 0:
     for _, row in df_mapa.iterrows():
         track = row.get('true_track') or 0
         icon_html = f"""
-        <div style="
-            font-size: 18px;
-            transform: rotate({track}deg);
-            filter: drop-shadow(0 0 6px #00ddff);
-            line-height: 1;
-            color: #00ddff;
-        ">✈</div>
+        <div style="font-size: 18px; transform: rotate({track}deg);
+                    filter: drop-shadow(0 0 6px #00ddff); color: #00ddff;">✈</div>
         """
         folium.Marker(
             location=[row['latitude'], row['longitude']],
-            icon=folium.DivIcon(
-                html=icon_html,
-                icon_size=(24, 24),
-                icon_anchor=(12, 12)
-            ),
-            popup=folium.Popup(
-                f"""
-                <div style='font-family: monospace; background: #020b18;
-                            color: #00ddff; padding: 8px; border-radius: 4px;
-                            border: 1px solid #00aaff; min-width: 160px;'>
-                    <b>✈ {row.get('callsign', 'N/A')}</b><br>
-                    <hr style='border-color: #00aaff33; margin: 4px 0'>
-                     {row.get('origin_country', 'N/A')}<br>
-                     Alt: {row.get('baro_altitude', 'N/A')} m<br>
-                     Vel: {row.get('velocity', 'N/A')} m/s<br>
-                     Track: {round(track)}°
-                </div>
-                """,
-                max_width=200
-            )
+            icon=folium.DivIcon(html=icon_html, icon_size=(24,24), icon_anchor=(12,12)),
+            popup=folium.Popup(f"""
+                <div style='font-family: monospace; background: #020b18; color: #00ddff;
+                            padding: 8px; border-radius: 4px; border: 1px solid #00aaff;'>
+                    <b>✈ {row.get('callsign','N/A')}</b><br>
+                    🌍 {row.get('origin_country','N/A')}<br>
+                    📡 Alt: {row.get('baro_altitude','N/A')} m<br>
+                    💨 Vel: {row.get('velocity','N/A')} m/s<br>
+                    🧭 Track: {round(track)}°
+                </div>""", max_width=200)
         ).add_to(mapa)
 
     st_folium(mapa, width=None, height=500, returned_objects=[])
 
-    # Barra de estado grande y visible
     st.markdown(f"""
     <div class='status-bar-big'>
         <span class='status-dot-big'></span>
@@ -460,9 +422,6 @@ if len(df) > 0:
         <span class='status-time'>⏱ {ultima_actualizacion}</span>
     </div>
     """, unsafe_allow_html=True)
-
-else:
-    st.info(" No hay vuelos disponibles en este momento.")
 
 st.markdown("<div class='neon-divider'></div>", unsafe_allow_html=True)
 
@@ -478,47 +437,29 @@ if len(df) > 0:
         top_paises = df['origin_country'].value_counts().head(10).reset_index()
         top_paises.columns = ['País', 'Vuelos']
         fig1 = go.Figure(go.Bar(
-            x=top_paises['Vuelos'],
-            y=top_paises['País'],
-            orientation='h',
-            marker=dict(
-                color=top_paises['Vuelos'],
-                colorscale=[[0, '#003366'], [0.5, '#0066cc'], [1, '#00ddff']],
-                showscale=False,
-                line=dict(color='rgba(0,170,255,0.3)', width=1)
-            )
+            x=top_paises['Vuelos'], y=top_paises['País'], orientation='h',
+            marker=dict(color=top_paises['Vuelos'],
+                       colorscale=[[0,'#003366'],[0.5,'#0066cc'],[1,'#00ddff']],
+                       showscale=False)
         ))
         fig1.update_layout(
             title=dict(text='Top 10 Países de Origen', font=dict(family='Orbitron', color='#00aaff', size=12)),
-            plot_bgcolor='rgba(2,11,24,0.8)',
-            paper_bgcolor='rgba(2,11,24,0)',
-            font=dict(color='#aaccee', family='Inter'),
-            xaxis=dict(gridcolor='rgba(0,100,255,0.1)', color='#aaccee'),
-            yaxis=dict(gridcolor='rgba(0,100,255,0.1)', color='#aaccee'),
-            margin=dict(l=10, r=10, t=40, b=10),
-            height=320
+            plot_bgcolor='rgba(2,11,24,0.8)', paper_bgcolor='rgba(2,11,24,0)',
+            font=dict(color='#aaccee'), height=320, margin=dict(l=10, r=10, t=40, b=10)
         )
         st.plotly_chart(fig1, use_container_width=True)
 
     with col2:
-        altitudes = df['baro_altitude'].dropna()
         fig2 = go.Figure(go.Histogram(
-            x=altitudes,
-            nbinsx=20,
-            marker=dict(
-                color='rgba(0,170,255,0.7)',
-                line=dict(color='rgba(0,220,255,0.8)', width=1)
-            )
+            x=df['baro_altitude'].dropna(), nbinsx=20,
+            marker=dict(color='rgba(0,170,255,0.7)', line=dict(color='rgba(0,220,255,0.8)', width=1))
         ))
         fig2.update_layout(
             title=dict(text='Distribución de Altitudes', font=dict(family='Orbitron', color='#00aaff', size=12)),
-            plot_bgcolor='rgba(2,11,24,0.8)',
-            paper_bgcolor='rgba(2,11,24,0)',
-            font=dict(color='#aaccee', family='Inter'),
-            xaxis=dict(title='Altitud (m)', gridcolor='rgba(0,100,255,0.1)', color='#aaccee'),
-            yaxis=dict(title='Vuelos', gridcolor='rgba(0,100,255,0.1)', color='#aaccee'),
-            margin=dict(l=10, r=10, t=40, b=10),
-            height=320
+            plot_bgcolor='rgba(2,11,24,0.8)', paper_bgcolor='rgba(2,11,24,0)',
+            font=dict(color='#aaccee'), height=320,
+            xaxis=dict(title='Altitud (m)'), yaxis=dict(title='Vuelos'),
+            margin=dict(l=10, r=10, t=40, b=10)
         )
         st.plotly_chart(fig2, use_container_width=True)
 
@@ -530,10 +471,10 @@ st.markdown("<div class='neon-divider'></div>", unsafe_allow_html=True)
 st.markdown("<div class='section-header'>Registro de Vuelos</div>", unsafe_allow_html=True)
 
 if len(df) > 0:
-    df_tabla = df[['callsign', 'origin_country', 'latitude', 'longitude',
-                   'baro_altitude', 'velocity', 'true_track']].copy()
-    df_tabla.columns = ['Callsign', 'País', 'Latitud', 'Longitud',
-                        'Altitud (m)', 'Velocidad (m/s)', 'Dirección (°)']
+    df_tabla = df[['callsign','origin_country','latitude','longitude',
+                   'baro_altitude','velocity','true_track']].copy()
+    df_tabla.columns = ['Callsign','País','Latitud','Longitud',
+                        'Altitud (m)','Velocidad (m/s)','Dirección (°)']
     st.dataframe(df_tabla, use_container_width=True, height=300)
 
 st.markdown("<div class='neon-divider'></div>", unsafe_allow_html=True)
@@ -548,7 +489,7 @@ lat = col1.number_input("Latitud", value=40.7128, format="%.4f")
 lon = col2.number_input("Longitud", value=-74.0060, format="%.4f")
 km = col3.number_input("Radio (km)", value=200, min_value=10, max_value=1000)
 
-if st.button(" Ejecutar Búsqueda Espacial"):
+if st.button("🔍 Ejecutar Búsqueda Espacial"):
     try:
         resp = requests.get(
             f"{API_URL}/vuelos/radio",
@@ -556,14 +497,34 @@ if st.button(" Ejecutar Búsqueda Espacial"):
             timeout=10
         )
         resultado = resp.json()
-        st.success(f" {resultado['total']} vuelos encontrados en radio de {km} km")
+        st.success(f"✅ {resultado['total']} vuelos encontrados en radio de {km} km")
         if resultado['total'] > 0:
             df_radio = pd.DataFrame(resultado['vuelos'])
-            st.dataframe(df_radio[['callsign', 'origin_country', 'baro_altitude',
-                                    'velocity', 'distancia_km']].rename(columns={
-                'callsign': 'Callsign', 'origin_country': 'País',
-                'baro_altitude': 'Altitud (m)', 'velocity': 'Velocidad (m/s)',
-                'distancia_km': 'Distancia (km)'
+            st.dataframe(df_radio[['callsign','origin_country','baro_altitude',
+                                    'velocity','distancia_km']].rename(columns={
+                'callsign':'Callsign','origin_country':'País',
+                'baro_altitude':'Altitud (m)','velocity':'Velocidad (m/s)',
+                'distancia_km':'Distancia (km)'
             }), use_container_width=True)
     except Exception as e:
         st.error(f"Error: {e}")
+
+# ============================================================
+# AUTO REFRESH - CONTADOR EN SIDEBAR
+# ============================================================
+rates = {"30 segundos": 30, "60 segundos": 60, "2 minutos": 120}
+segundos = rates[refresh_rate]
+
+for i in range(segundos, 0, -1):
+    contador_sidebar.markdown(f"""
+    <div style='color: #00ff88; font-family: Orbitron, monospace;
+                font-size: 0.8rem; text-align: center; padding: 8px;
+                border: 1px solid rgba(0,255,136,0.2); border-radius: 6px;
+                margin-top: 8px;'>
+        ⏱ Actualizando en {i}s
+    </div>
+    """, unsafe_allow_html=True)
+    time.sleep(1)
+
+st.cache_data.clear()
+st.rerun()
